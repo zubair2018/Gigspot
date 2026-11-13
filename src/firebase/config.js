@@ -16,18 +16,18 @@ const missingConfig = Object.entries(firebaseConfig)
   .filter(([, value]) => !value)
   .map(([key]) => key)
 
-export const firebaseConfigError = missingConfig.length
-  ? `Missing Firebase environment settings: ${missingConfig.join(', ')}`
-  : ''
+if (missingConfig.length) {
+  throw new Error(`Missing Firebase environment settings: ${missingConfig.join(', ')}`)
+}
 
-const app = firebaseConfigError ? null : initializeApp(firebaseConfig)
+const app = initializeApp(firebaseConfig)
 
 const functionsRegion =
   import.meta.env.VITE_FIREBASE_FUNCTIONS_REGION || 'asia-south1'
 
-export const auth = app ? getAuth(app) : null
-export const db = app ? getFirestore(app) : null
-export const functions = app ? getFunctions(app, functionsRegion) : null
+export const auth = getAuth(app)
+export const db = getFirestore(app)
+export const functions = getFunctions(app, functionsRegion)
 
 export const googleProvider = new GoogleAuthProvider()
 

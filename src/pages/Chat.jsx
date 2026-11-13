@@ -30,12 +30,10 @@ export default function Chat() {
 
   useEffect(() => {
     if (!user) return
-    let active = true
 
     async function loadChatInfo() {
       try {
         const currentChat = await getChat(chatId)
-        if (!active) return
 
         if (!currentChat) {
           setError('Chat not found or you do not have access to it.')
@@ -45,7 +43,7 @@ export default function Chat() {
         setChat(currentChat)
       } catch (error) {
         console.error('Chat info load error:', error)
-        if (active) setError('Unable to load chat information.')
+        setError('Unable to load chat information.')
       }
     }
 
@@ -53,14 +51,11 @@ export default function Chat() {
 
     const unsubscribe = subscribeMessages(
       chatId,
-      messages => { if (active) setMessages(messages) },
-      messageError => { if (active) setError(messageError) }
+      setMessages,
+      setError
     )
 
-    return () => {
-      active = false
-      unsubscribe()
-    }
+    return unsubscribe
   }, [chatId, user])
 
   useEffect(() => {

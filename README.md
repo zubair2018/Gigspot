@@ -19,7 +19,7 @@ The public Vite app uses the existing root `.env` Firebase variables. Keep that 
 
 ## Current Listing Policy
 
-- Hiring requests are free and published immediately. Requests may be suspended for policy violations.
+- Hiring requests are free and published immediately. Reported requests may be suspended after review.
 - Freelancer services are free and begin as `pending_review`; only an authorized admin can publish or reject them.
 - Editing an approved service sends it back to `pending_review`.
 - Email verification is required to create listings and start conversations. It is not identity or professional-credential verification.
@@ -56,5 +56,5 @@ See [admin/README.md](admin/README.md) for internal access prerequisites.
 - Firebase Storage is not initialized. Profile-photo uploads need Storage configuration, billing review, and Storage rules; current profile images use existing provider photos or initials.
 - No automated Firebase security emulator suite is configured yet.
 - Search filters only the pages currently loaded from Firestore (20 per collection at a time); load more to expand the client-side search scope.
-- New bookmarks are stored privately under each user's `savedListings` subcollection. Existing public `savedBy` arrays remain unchanged. Before any migration, an authorized operator can run the count-only, read-only audit with `node scripts/auditLegacyListings.cjs --read-only`; it scans in pages and prints counts only. No migration or writes are provided. Any migration needs a reviewed dry run and explicit approval.
+- New bookmarks are stored privately under each user's `savedListings` subcollection. Existing public `savedBy` arrays remain unchanged; their private migration needs a dry run and explicit approval.
 - Legacy payment records and Razorpay endpoints are preserved and not treated as active free-first product functionality.

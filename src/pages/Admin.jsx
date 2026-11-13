@@ -334,12 +334,8 @@ export default function Admin() {
 
           <button
             onClick={async () => {
-              try {
-                await logout()
-                navigate('/signin?returnTo=%2F', { replace: true })
-              } catch {
-                setError('Could not sign out. Please try again.')
-              }
+              await logout()
+              navigate('/signin?returnTo=%2F', { replace: true })
             }}
             className="btn-primary mt-6"
           >
@@ -653,7 +649,6 @@ function AdminListingsTab({
           <option value="all">All statuses</option>
           {collectionName === 'skills' && <option value="pending_review">Pending review</option>}
           {collectionName === 'skills' && <option value="rejected">Changes requested</option>}
-          {collectionName === 'skills' && <option value="active">Legacy active (private)</option>}
           <option value="published">Published</option>
           {collectionName === 'jobs' && <option value="pending_payment">Legacy pending payment</option>}
           {collectionName === 'jobs' && <option value="closed">Closed</option>}
@@ -727,7 +722,7 @@ function AdminListingsTab({
                   </div>
 
                   <div className="flex gap-2">
-                    {collectionName === 'skills' && ['pending_review', 'rejected', 'active'].includes(listing.status) && (
+                    {collectionName === 'skills' && ['pending_review', 'rejected'].includes(listing.status) && (
                       <>
                         <button
                           onClick={() => onReview(listing, 'approve')}

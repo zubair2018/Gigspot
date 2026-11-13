@@ -1,7 +1,6 @@
 import {
   addDoc,
   collection,
-  deleteField,
   doc,
   deleteDoc,
   getDoc,
@@ -37,14 +36,6 @@ function mapDocs(snapshot) {
   }))
 }
 
-function listingOwner(user) {
-  return {
-    uid: user.uid,
-    name: (user.displayName || 'User').trim().slice(0, 80) || 'User',
-    photo: (user.photoURL || '').slice(0, 2048),
-  }
-}
-
 export async function createOrUpdateUser(user) {
   if (!user?.uid) return
 
@@ -53,9 +44,9 @@ export async function createOrUpdateUser(user) {
 
   const userData = {
     uid: user.uid,
-    name: (user.displayName || '').trim().slice(0, 60) || 'Gigspot member',
+    name: user.displayName || 'Gigspot member',
     email: user.email || '',
-    photo: (user.photoURL || '').slice(0, 2048),
+    photo: user.photoURL || '',
     lastLoginAt: serverTimestamp(),
   }
 
@@ -75,11 +66,14 @@ export async function createJob(jobData, user) {
 
     type: 'job',
 
-    postedBy: listingOwner(user),
+    postedBy: {
+      uid: user.uid,
+      name: user.displayName || 'User',
+      photo: user.photoURL || '',
+    },
 
     status: JOB_STATUS.PUBLISHED,
     publishedAt: serverTimestamp(),
-    privacySafe: true,
 
     featured: false,
     featuredUntil: null,
@@ -99,11 +93,14 @@ export async function createSkill(skillData, user) {
 
     type: 'skill',
 
-    postedBy: listingOwner(user),
+    postedBy: {
+      uid: user.uid,
+      name: user.displayName || 'User',
+      photo: user.photoURL || '',
+    },
 
     status: SKILL_STATUS.PENDING_REVIEW,
     rejectionReason: '',
-    privacySafe: true,
 
     isVerified: false,
     verifiedUntil: null,
@@ -172,9 +169,6 @@ export async function getSkill(id) {
 export async function updateJob(id, data) {
   await updateDoc(doc(db, JOBS, id), {
     ...data,
-    phone: deleteField(),
-    savedBy: deleteField(),
-    privacySafe: true,
     updatedAt: serverTimestamp(),
   })
 }
@@ -189,9 +183,6 @@ export async function setJobStatus(id, status) {
 export async function updateSkill(id, data) {
   await updateDoc(doc(db, SKILLS, id), {
     ...data,
-    phone: deleteField(),
-    savedBy: deleteField(),
-    privacySafe: true,
     status: SKILL_STATUS.PENDING_REVIEW,
     rejectionReason: '',
     updatedAt: serverTimestamp(),
@@ -238,44 +229,32 @@ export async function getSavedListingIds(uid) {
   return mapDocs(await getDocs(q)).map(item => `${item.collectionName}_${item.listingId}`)
 }
 
-export async function getSavedListingsPage(uid, collectionName, cursor = null, pageSize = 30) {
-  if (!['jobs', 'skills'].includes(collectionName)) {
-    throw new Error('Unsupported saved listing type.')
-  }
-
-  const safePageSize = Math.min(Math.max(Number(pageSize) || 30, 1), 50)
+async function loadSavedListings(uid, collectionName) {
   const q = query(
     collection(db, USERS, uid, SAVED_LISTINGS),
     where('collectionName', '==', collectionName),
-    orderBy('createdAt', 'desc'),
-    ...(cursor ? [startAfter(cursor)] : []),
-    limit(safePageSize)
+    limit(50)
   )
-  const bookmarkSnapshot = await getDocs(q)
-  const saved = mapDocs(bookmarkSnapshot)
+  const saved = mapDocs(await getDocs(q))
   const sourceCollection = collection(db, collectionName)
-  const snapshots = await Promise.all(saved.map(item =>
-    getDoc(doc(sourceCollection, item.listingId)).catch(() => null)
-  ))
+  const snapshots = await Promise.all(saved.map(item => getDoc(doc(sourceCollection, item.listingId))))
 
-  const items = snapshots
-    .filter(snapshot => snapshot?.exists()
-      && snapshot.data().status === 'published'
-      && snapshot.data().privacySafe === true)
+  return snapshots
+    .filter(snapshot => snapshot.exists() && snapshot.data().status === 'published')
     .map(snapshot => ({ id: snapshot.id, ...snapshot.data() }))
     .sort((first, second) => {
       const firstTime = first.createdAt?.toMillis?.() || first.publishedAt?.toMillis?.() || 0
       const secondTime = second.createdAt?.toMillis?.() || second.publishedAt?.toMillis?.() || 0
       return secondTime - firstTime
     })
+}
 
-  return {
-    items,
-    cursor: bookmarkSnapshot.docs.length
-      ? bookmarkSnapshot.docs[bookmarkSnapshot.docs.length - 1]
-      : null,
-    hasMore: saved.length === safePageSize,
-  }
+export async function getSavedJobs(uid) {
+  return loadSavedListings(uid, JOBS)
+}
+
+export async function getSavedSkills(uid) {
+  return loadSavedListings(uid, SKILLS)
 }
 
 export async function incrementJobViews(id) {
@@ -332,7 +311,6 @@ export async function getOrCreateChat(
         [receiverUser.uid]: '',
       },
       lastMessage: '',
-      lastMessageId: null,
       lastMessageAt: serverTimestamp(),
       createdAt: serverTimestamp(),
     })
@@ -396,19 +374,21 @@ export async function getMarketplacePage(collectionName, cursor = null, pageSize
   const isSkills = collectionName === SKILLS || collectionName === 'skills'
   const reference = collection(db, isSkills ? SKILLS : JOBS)
   const safePageSize = Math.min(Math.max(Number(pageSize) || 20, 1), 50)
-  const constraints = [
-    where('privacySafe', '==', true),
-    where('status', '==', isSkills ? SKILL_STATUS.PUBLISHED : JOB_STATUS.PUBLISHED),
-    orderBy('createdAt', 'desc'),
-  ]
+  const constraints = [orderBy('createdAt', 'desc')]
 
   if (cursor) constraints.push(startAfter(cursor))
   constraints.push(limit(safePageSize))
 
   const snapshot = await getDocs(query(reference, ...constraints))
+  const items = mapDocs(snapshot).filter(item => {
+    const status = item.status
+    return isSkills
+      ? status === SKILL_STATUS.PUBLISHED
+      : status === JOB_STATUS.PUBLISHED
+  })
 
   return {
-    items: mapDocs(snapshot),
+    items,
     cursor: snapshot.docs.length ? snapshot.docs[snapshot.docs.length - 1] : null,
     hasMore: snapshot.size === safePageSize,
   }

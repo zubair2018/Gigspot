@@ -25,8 +25,6 @@ export default function Messages() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    let active = true
-
     async function loadChats() {
       if (!user) return
 
@@ -34,18 +32,16 @@ export default function Messages() {
       setError('')
 
       try {
-        const result = await getMyChats(user.uid)
-        if (active) setChats(result)
+        setChats(await getMyChats(user.uid))
       } catch (error) {
         console.error('Chats load error:', error)
-        if (active) setError('Unable to load conversations.')
+        setError('Unable to load conversations.')
       } finally {
-        if (active) setLoading(false)
+        setLoading(false)
       }
     }
 
     loadChats()
-    return () => { active = false }
   }, [user])
 
   if (!user) {

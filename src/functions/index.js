@@ -31,14 +31,10 @@ exports.updateChatSummary = onDocumentCreated(
 
       const currentTime = chat.lastMessageAt?.toMillis?.() || 0
       const messageTime = message.createdAt?.toMillis?.() || 0
-      if (
-        currentTime > messageTime ||
-        (currentTime === messageTime && chat.lastMessageId >= event.params.messageId)
-      ) return
+      if (currentTime > messageTime) return
 
       transaction.update(chatRef, {
         lastMessage: message.text.slice(0, 2000),
-        lastMessageId: event.params.messageId,
         lastMessageAt: message.createdAt || admin.firestore.FieldValue.serverTimestamp(),
       })
     })
@@ -751,15 +747,7 @@ exports.reviewService = onCall(
       }
 
       const service = snapshot.data()
-      if (service.postedBy?.uid === adminUid) {
-        throw new HttpsError('permission-denied', 'Administrators cannot review their own service.')
-      }
-
-      if (Object.prototype.hasOwnProperty.call(service, 'phone')) {
-        throw new HttpsError('failed-precondition', 'This service still contains a legacy public contact field. The owner must edit it before review.')
-      }
-
-      if (!['pending_review', 'rejected', 'active'].includes(service.status)) {
+      if (!['pending_review', 'rejected'].includes(service.status)) {
         throw new HttpsError('failed-precondition', 'This service is not eligible for review.')
       }
 
@@ -768,7 +756,6 @@ exports.reviewService = onCall(
 
       transaction.update(serviceRef, {
         status,
-        privacySafe: true,
         rejectionReason: decision === 'reject' ? cleanReason : '',
         moderatedBy: adminUid,
         moderatedAt: now,

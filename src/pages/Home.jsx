@@ -171,7 +171,7 @@ export default function Home() {
             {listingType !== 'skills' && (
               <ListingSection
                 title="Jobs and opportunities"
-                description="Hiring requests publish immediately and may be suspended for policy violations."
+                description="Hiring requests publish immediately and may be removed after reports or moderation."
                 items={filteredJobs}
                 refresh={refresh}
                 loading={jobsLoading}

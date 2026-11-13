@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getMyJobs, setJobStatus } from '../firebase/db'
@@ -15,38 +15,29 @@ export default function MyJobs() {
   const [nextCursor, setNextCursor] = useState(null)
   const [updatingJobId, setUpdatingJobId] = useState('')
   const [error, setError] = useState('')
-  const requestSequence = useRef(0)
-  const cursorRef = useRef(null)
 
   async function loadJobs(append = false) {
     if (!user) return
 
-    const requestId = ++requestSequence.current
     if (append) setLoadingMore(true)
     else setLoading(true)
     setError('')
 
     try {
-      const data = await getMyJobs(user.uid, append ? cursorRef.current : null)
-      if (requestId !== requestSequence.current) return
+      const data = await getMyJobs(user.uid, append ? nextCursor : null)
       setJobs(current => append ? [...current, ...data.items] : data.items)
-      cursorRef.current = data.hasMore ? data.cursor : null
-      setNextCursor(cursorRef.current)
+      setNextCursor(data.hasMore ? data.cursor : null)
     } catch (err) {
-      if (requestId !== requestSequence.current) return
       console.error('Unable to load my jobs:', err)
       setError('Unable to load your jobs. Please refresh and try again.')
     } finally {
-      if (requestId === requestSequence.current) {
-        if (append) setLoadingMore(false)
-        else setLoading(false)
-      }
+      if (append) setLoadingMore(false)
+      else setLoading(false)
     }
   }
 
   useEffect(() => {
     loadJobs()
-    return () => { requestSequence.current += 1 }
   }, [user])
 
   const groupedJobs = useMemo(() => {
@@ -55,13 +46,10 @@ export default function MyJobs() {
         job => job.status === JOB_STATUS.PENDING_PAYMENT
       ),
       published: jobs.filter(
-        job => job.status === JOB_STATUS.PUBLISHED && job.privacySafe === true
+        job => job.status === JOB_STATUS.PUBLISHED
       ),
-      paused: jobs.filter(job => job.status === JOB_STATUS.PAUSED && job.privacySafe === true),
-      closed: jobs.filter(job => job.status === JOB_STATUS.CLOSED && job.privacySafe === true),
-      privateLegacy: jobs.filter(job =>
-        job.privacySafe !== true && [JOB_STATUS.PUBLISHED, JOB_STATUS.PAUSED, JOB_STATUS.CLOSED].includes(job.status)
-      ),
+      paused: jobs.filter(job => job.status === JOB_STATUS.PAUSED),
+      closed: jobs.filter(job => job.status === JOB_STATUS.CLOSED),
       removed: jobs.filter(job => job.status === JOB_STATUS.DELETED),
     }
   }, [jobs])
@@ -88,7 +76,7 @@ export default function MyJobs() {
   return (
     <DashboardLayout
       title="My Jobs"
-      description="Manage your free hiring requests. New requests publish immediately and may be suspended for policy violations. Showing up to 30 requests per page."
+      description="Manage your free hiring requests. New requests are published immediately and reviewed if reported. Showing up to 30 requests per page."
       buttonText="+ Post a request"
       onButtonClick={() => navigate('/post-job')}
       error={error}
@@ -111,18 +99,6 @@ export default function MyJobs() {
               Remove
             </button>
           </div>
-        )}
-      />
-
-      <JobSection
-        title="Private legacy requests: edit to remove old contact data"
-        jobs={groupedJobs.privateLegacy}
-        emptyMessage="No legacy requests need privacy updates."
-        onRefresh={loadJobs}
-        renderAction={job => (
-          <button onClick={() => navigate(`/edit/${job.id}`)} className="btn-outline text-xs">
-            Edit and make safe
-          </button>
         )}
       />
 

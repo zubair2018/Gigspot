@@ -29,7 +29,7 @@ export default function JobCard({
   onSaveToggle,
 }) {
   const { user } = useAuth()
-  const { savedIds, loading: savedLoading, toggle } = useSavedListings()
+  const { savedIds, toggle } = useSavedListings()
   const navigate = useNavigate()
   const [saving, setSaving] = useState(false)
 
@@ -106,7 +106,7 @@ export default function JobCard({
           {user?.uid !== job.postedBy?.uid && (
             <button
               onClick={handleSave}
-              disabled={saving || savedLoading}
+              disabled={saving}
               className="w-7 h-7 rounded-lg flex items-center justify-center transition-all flex-shrink-0 disabled:opacity-50"
               style={{
                 border: `1px solid ${saved ? 'var(--gold)' : 'rgba(4,50,34,0.12)'}`,

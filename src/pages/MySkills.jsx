@@ -10,7 +10,6 @@ const GROUPS = [
   { status: SKILL_STATUS.PENDING_REVIEW, title: 'Pending review', empty: 'No services waiting for review.' },
   { status: SKILL_STATUS.PUBLISHED, title: 'Published services', empty: 'No approved services yet.' },
   { status: SKILL_STATUS.REJECTED, title: 'Changes requested', empty: 'No services need changes.' },
-  { status: SKILL_STATUS.ACTIVE, title: 'Legacy services (review required)', empty: 'No legacy services.' },
   { status: SKILL_STATUS.PAUSED, title: 'Paused services', empty: 'No paused services.' },
   { status: SKILL_STATUS.SUSPENDED, title: 'Suspended', empty: 'No suspended services.' },
 ]

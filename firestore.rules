@@ -60,7 +60,7 @@ service cloud.firestore {
         && link.label.size() <= 80
         && link.url is string
         && link.url.size() <= 2048
-        && link.url.matches('^https://[^\\s/@?#]+([/?#][^\\s]*)?$');
+        && link.url.matches('^https://[^/@?#]+([/?#][^ ]*)?$');
     }
 
     function validPortfolio(data) {
@@ -159,17 +159,14 @@ service cloud.firestore {
           && request.resource.data.collectionName in ['jobs', 'skills']
           && request.resource.data.listingId is string
           && request.resource.data.listingId.matches('^[A-Za-z0-9_-]{1,150}$')
-          && request.resource.data.createdAt == request.time
           && request.resource.data.createdAt is timestamp
           && savedId == request.resource.data.collectionName + '_' + request.resource.data.listingId
           && ((request.resource.data.collectionName == 'jobs'
             && exists(/databases/$(database)/documents/jobs/$(request.resource.data.listingId))
-            && get(/databases/$(database)/documents/jobs/$(request.resource.data.listingId)).data.status == 'published'
-            && get(/databases/$(database)/documents/jobs/$(request.resource.data.listingId)).data.privacySafe == true)
+            && get(/databases/$(database)/documents/jobs/$(request.resource.data.listingId)).data.status == 'published')
             || (request.resource.data.collectionName == 'skills'
             && exists(/databases/$(database)/documents/skills/$(request.resource.data.listingId))
-            && get(/databases/$(database)/documents/skills/$(request.resource.data.listingId)).data.status == 'published'
-            && get(/databases/$(database)/documents/skills/$(request.resource.data.listingId)).data.privacySafe == true));
+            && get(/databases/$(database)/documents/skills/$(request.resource.data.listingId)).data.status == 'published'));
 
         allow update: if false;
         allow delete: if signedIn() && request.auth.uid == userId;
@@ -177,16 +174,12 @@ service cloud.firestore {
     }
 
     match /jobs/{jobId} {
-        allow read: if (resource != null && resource.data.status == 'published'
-          && resource.data.privacySafe == true)
-        || (signedIn() && resource != null && resource.data.postedBy.uid == request.auth.uid)
-        || isAdmin();
+      allow read: if true;
 
       allow create: if verifiedUser()
         && validPoster(request.resource.data.postedBy, request.auth.uid)
         && request.resource.data.type == 'job'
         && request.resource.data.status == 'published'
-        && request.resource.data.privacySafe == true
         && request.resource.data.publishedAt is timestamp
         && request.resource.data.createdAt is timestamp
         && request.resource.data.updatedAt is timestamp
@@ -196,18 +189,15 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly([
           'title', 'category', 'location', 'description', 'payMin', 'payMax',
           'payType', 'tags', 'availability', 'portfolio', 'type',
-          'postedBy', 'status', 'publishedAt', 'privacySafe', 'featured', 'featuredUntil',
+          'postedBy', 'status', 'publishedAt', 'featured', 'featuredUntil',
           'views', 'createdAt', 'updatedAt'
         ])
         && validListingContent(request.resource.data);
 
       allow update: if verifiedUser()
         && isOwner()
-        && request.resource.data.updatedAt == request.time
         && resource.data.status in ['published', 'paused', 'closed']
         && request.resource.data.status == resource.data.status
-        && request.resource.data.privacySafe == true
-        && !request.resource.data.keys().hasAny(['phone'])
         && validListingContent(request.resource.data)
         && hasOnlyChanged([
           'title',
@@ -220,36 +210,29 @@ service cloud.firestore {
           'tags',
           'availability',
           'portfolio',
-          'phone',
-          'savedBy',
-          'privacySafe',
           'updatedAt'
         ]);
 
       allow update: if verifiedUser()
         && isOwner()
-        && request.resource.data.updatedAt == request.time
         && resource.data.status == 'published'
         && request.resource.data.status in ['paused', 'closed']
         && hasOnlyChanged(['status', 'updatedAt']);
 
       allow update: if verifiedUser()
         && isOwner()
-        && request.resource.data.updatedAt == request.time
         && resource.data.status == 'paused'
         && request.resource.data.status in ['published', 'closed']
         && hasOnlyChanged(['status', 'updatedAt']);
 
       allow update: if verifiedUser()
         && isOwner()
-        && request.resource.data.updatedAt == request.time
         && resource.data.status == 'closed'
         && request.resource.data.status == 'published'
         && hasOnlyChanged(['status', 'updatedAt']);
 
       allow update: if verifiedUser()
         && isOwner()
-        && request.resource.data.updatedAt == request.time
         && resource.data.status in ['published', 'paused', 'closed']
         && request.resource.data.status == 'deleted'
         && hasOnlyChanged(['status', 'updatedAt']);
@@ -264,16 +247,12 @@ service cloud.firestore {
     }
 
     match /skills/{skillId} {
-        allow read: if (resource != null && resource.data.status == 'published'
-          && resource.data.privacySafe == true)
-        || (signedIn() && resource != null && resource.data.postedBy.uid == request.auth.uid)
-        || isAdmin();
+      allow read: if true;
 
       allow create: if verifiedUser()
         && validPoster(request.resource.data.postedBy, request.auth.uid)
         && request.resource.data.type == 'skill'
         && request.resource.data.status == 'pending_review'
-        && request.resource.data.privacySafe == true
         && request.resource.data.rejectionReason == ''
         && request.resource.data.createdAt is timestamp
         && request.resource.data.updatedAt is timestamp
@@ -287,7 +266,7 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly([
           'title', 'category', 'location', 'description', 'payMin', 'payMax',
           'payType', 'tags', 'availability', 'portfolio', 'type',
-          'postedBy', 'status', 'privacySafe', 'rejectionReason', 'isVerified', 'verifiedUntil',
+          'postedBy', 'status', 'rejectionReason', 'isVerified', 'verifiedUntil',
           'verificationPlan', 'verificationPaymentId', 'featured',
           'featuredUntil', 'views', 'createdAt', 'updatedAt'
         ])
@@ -295,11 +274,8 @@ service cloud.firestore {
 
       allow update: if verifiedUser()
         && isOwner()
-        && request.resource.data.updatedAt == request.time
         && resource.data.status in ['pending_review', 'rejected', 'published', 'paused', 'active']
         && request.resource.data.status == 'pending_review'
-        && request.resource.data.privacySafe == true
-        && !request.resource.data.keys().hasAny(['phone'])
         && validListingContent(request.resource.data)
         && hasOnlyChanged([
           'title',
@@ -312,28 +288,22 @@ service cloud.firestore {
           'tags',
           'availability',
           'portfolio',
-          'phone',
-          'savedBy',
-          'privacySafe',
           'status',
           'rejectionReason',
           'updatedAt'
         ]);
 
       allow update: if isOwner()
-        && request.resource.data.updatedAt == request.time
         && resource.data.status == 'published'
         && request.resource.data.status == 'paused'
         && hasOnlyChanged(['status', 'updatedAt']);
 
       allow update: if isOwner()
-        && request.resource.data.updatedAt == request.time
         && resource.data.status == 'paused'
         && request.resource.data.status == 'pending_review'
         && hasOnlyChanged(['status', 'updatedAt']);
 
       allow update: if isOwner()
-        && request.resource.data.updatedAt == request.time
         && resource.data.status in ['pending_review', 'rejected', 'published', 'paused', 'active']
         && request.resource.data.status == 'deleted'
         && hasOnlyChanged(['status', 'updatedAt']);
@@ -376,15 +346,13 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly([
           'entityId', 'entityTitle', 'entityType', 'participants',
           'participantNames', 'participantPhotos', 'lastMessage',
-          'lastMessageId', 'lastMessageAt', 'createdAt'
+          'lastMessageAt', 'createdAt'
         ])
         && request.resource.data.lastMessage == ''
-        && request.resource.data.lastMessageId == null
         && (
           (request.resource.data.entityType == 'job'
             && exists(/databases/$(database)/documents/jobs/$(request.resource.data.entityId))
             && get(/databases/$(database)/documents/jobs/$(request.resource.data.entityId)).data.status == 'published'
-            && get(/databases/$(database)/documents/jobs/$(request.resource.data.entityId)).data.privacySafe == true
             && get(/databases/$(database)/documents/jobs/$(request.resource.data.entityId)).data.postedBy.uid != request.auth.uid
             && request.resource.data.entityTitle == get(/databases/$(database)/documents/jobs/$(request.resource.data.entityId)).data.title
             && request.resource.data.participantNames[get(/databases/$(database)/documents/jobs/$(request.resource.data.entityId)).data.postedBy.uid] == get(/databases/$(database)/documents/jobs/$(request.resource.data.entityId)).data.postedBy.name
@@ -397,7 +365,6 @@ service cloud.firestore {
           (request.resource.data.entityType == 'skill'
             && exists(/databases/$(database)/documents/skills/$(request.resource.data.entityId))
             && get(/databases/$(database)/documents/skills/$(request.resource.data.entityId)).data.status == 'published'
-            && get(/databases/$(database)/documents/skills/$(request.resource.data.entityId)).data.privacySafe == true
             && get(/databases/$(database)/documents/skills/$(request.resource.data.entityId)).data.postedBy.uid != request.auth.uid
             && request.resource.data.entityTitle == get(/databases/$(database)/documents/skills/$(request.resource.data.entityId)).data.title
             && request.resource.data.participantNames[get(/databases/$(database)/documents/skills/$(request.resource.data.entityId)).data.postedBy.uid] == get(/databases/$(database)/documents/skills/$(request.resource.data.entityId)).data.postedBy.name

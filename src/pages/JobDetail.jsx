@@ -175,11 +175,11 @@ export default function JobDetail() {
     user && savedIds.has(`${isSkill ? 'skills' : 'jobs'}_${listing.id}`)
   )
 
-  const publicListing = listing.privacySafe === true && (isSkill
+  const publicListing = isSkill
     ? listing.status === SKILL_STATUS.PUBLISHED
-    : listing.status === JOB_STATUS.PUBLISHED)
+    : listing.status === JOB_STATUS.PUBLISHED
   const canEdit = isSkill
-    ? [SKILL_STATUS.PENDING_REVIEW, SKILL_STATUS.REJECTED, SKILL_STATUS.PUBLISHED, SKILL_STATUS.PAUSED, SKILL_STATUS.ACTIVE].includes(listing.status)
+    ? [SKILL_STATUS.PENDING_REVIEW, SKILL_STATUS.REJECTED, SKILL_STATUS.PUBLISHED, SKILL_STATUS.PAUSED].includes(listing.status)
     : [JOB_STATUS.PUBLISHED, JOB_STATUS.PAUSED, JOB_STATUS.CLOSED].includes(listing.status)
 
   const initials =
@@ -285,9 +285,7 @@ export default function JobDetail() {
               color: '#c2410c',
             }}
           >
-            {listing.privacySafe !== true
-              ? 'This legacy listing is private until edited to remove old public contact fields.'
-              : listing.status === SKILL_STATUS.PENDING_REVIEW
+            {listing.status === SKILL_STATUS.PENDING_REVIEW
               ? 'Your service is waiting for review and is not public yet.'
               : listing.status === SKILL_STATUS.REJECTED
                 ? `Changes requested: ${listing.rejectionReason || 'Please edit and resubmit this service.'}`

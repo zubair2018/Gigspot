@@ -127,7 +127,7 @@ export default function PostJob() {
             className="text-sm mt-1"
             style={{ color: 'rgba(246,233,208,0.64)' }}
           >
-            Hiring requests are free and published immediately. Requests may be suspended for policy violations.
+            Hiring requests are free and published immediately. Reported content may be reviewed or removed.
           </p>
         </div>
 

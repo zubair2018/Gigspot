@@ -24,7 +24,7 @@ export default function App() {
   return (
     <AuthProvider>
       <SavedListingsProvider>
-        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <BrowserRouter>
           <Navbar />
 
           <Routes>

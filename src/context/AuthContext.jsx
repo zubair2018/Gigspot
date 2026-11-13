@@ -150,7 +150,6 @@ export function AuthProvider({ children }) {
     } catch (error) {
       console.error('Sign-out error:', error)
       setAuthError('Could not sign out. Please try again.')
-      throw error
     }
   }
 

@@ -45,11 +45,7 @@ async function main() {
   })
 
   try {
-    const user = await admin.auth().getUser(uid)
-    await admin.auth().setCustomUserClaims(uid, {
-      ...(user.customClaims || {}),
-      role: 'admin',
-    })
+    await admin.auth().setCustomUserClaims(uid, { role: 'admin' })
     console.log('Admin claim assigned. The user must sign out and back in to refresh the token.')
   } catch (error) {
     console.error('Could not assign the admin claim:', error.code || 'unknown error')

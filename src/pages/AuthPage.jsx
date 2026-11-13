@@ -53,7 +53,7 @@ function getAuthError(error) {
 export default function AuthPage({ mode = 'signin', internalOnly = false }) {
   const navigate = useNavigate()
   const [params] = useSearchParams()
-  const { user, authError, signInWithGoogle, signingIn } = useAuth()
+  const { user, signInWithGoogle, signingIn } = useAuth()
   const location = useLocation()
 
   const [form, setForm] = useState({
@@ -249,9 +249,9 @@ export default function AuthPage({ mode = 'signin', internalOnly = false }) {
               : 'Sign in to manage your listings and conversations.'}
         </p>
 
-        {(error || authError) && (
+        {error && (
           <p className="gs-alert" role="alert">
-            {error || authError}
+            {error}
           </p>
         )}
 

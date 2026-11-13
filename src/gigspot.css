@@ -985,15 +985,3 @@
   background-size: cover;
   background-position: center;
 }
-
-.gs-config-error {
-  display: block;
-  padding: 14px;
-  overflow-wrap: anywhere;
-  border: 1px solid var(--gs-border);
-  border-radius: 8px;
-  background: #f3f6f1;
-  color: var(--gs-dark);
-  font-size: 13px;
-  line-height: 1.7;
-}
