@@ -13,7 +13,7 @@ import {
 import {
   EditLayout,
   LoadingScreen,
-} from './EditJob'
+} from '../pages/EditJob'
 
 export default function EditSkill() {
   const { id } = useParams()
