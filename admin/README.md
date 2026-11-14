@@ -1,4 +1,4 @@
-# Gigspot Internal Console
+# Gigspot.in Internal Console
 
 Run locally from the repository root:
 

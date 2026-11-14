@@ -226,7 +226,7 @@ export default function AuthPage({ mode = 'signin', internalOnly = false }) {
     <main className="gs-auth-shell">
       <section className="gs-auth-card">
         <Link to="/" className="gs-logo">
-          gigspot<span>.</span>
+          gigspot<span>.in</span>
         </Link>
 
         <p className="gs-eyebrow">
@@ -379,7 +379,7 @@ export default function AuthPage({ mode = 'signin', internalOnly = false }) {
             ) : (
               <>
                 <p>
-                  {signup ? 'Already a member?' : 'New to Gigspot?'}{' '}
+                  {signup ? 'Already a member?' : 'New to Gigspot.in?'}{' '}
                   <Link to={signup ? '/signin' : '/signup'}>
                     {signup ? 'Sign in' : 'Create an account'}
                   </Link>

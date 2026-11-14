@@ -77,7 +77,7 @@ export default function VerifyEmail() {
   return (
     <main className="gs-auth-shell">
       <section className="gs-auth-card">
-        <Link to="/" className="gs-logo">gigspot<span>.</span></Link>
+        <Link to="/" className="gs-logo">gigspot<span>.in</span></Link>
         <p className="gs-eyebrow">One quick account check</p>
         <h1>Verify your email</h1>
         <p className="gs-auth-description">

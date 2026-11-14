@@ -3,7 +3,7 @@ import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export default function Navbar() {
-  const { user, logout } = useAuth()
+  const { user, logout, isAdmin } = useAuth()
 
   const location = useLocation()
   const navigate = useNavigate()
@@ -65,45 +65,11 @@ export default function Navbar() {
   return (
     <header className="gs-header" ref={containerRef}>
       <div className="gs-container gs-navbar">
-        <Link to="/" className="gs-logo" aria-label="Gigspot home">
-          gigspot<span>.</span>
+        <Link to="/" className="gs-logo" aria-label="Gigspot.in home">
+          gigspot<span>.in</span>
         </Link>
 
         <nav className="gs-desktop-nav" aria-label="Main navigation">
-          <Link to="/?type=skills#explore">Explore services</Link>
-
-          <div className="gs-menu-container">
-            <button
-              type="button"
-              className="gs-nav-button"
-              aria-expanded={openMenu === 'pro'}
-              aria-controls="gigspot-pro-menu"
-              onClick={() => toggleMenu('pro')}
-            >
-              Gigspot Pro
-              <span aria-hidden="true">⌄</span>
-            </button>
-
-            {openMenu === 'pro' && (
-              <div className="gs-dropdown" id="gigspot-pro-menu">
-                <Link to="/?type=skills#explore">
-                  <strong>I am looking to hire</strong>
-                  <span>Find people who can bring your ideas to life.</span>
-                </Link>
-
-                <Link to={freelancerDestination}>
-                  <strong>I want to offer skills</strong>
-                  <span>Create a service and share your work.</span>
-                </Link>
-
-                <p>
-                  Free hiring and freelancing tools.
-                  No paid Pro subscription is offered yet.
-                </p>
-              </div>
-            )}
-          </div>
-
           {user ? (
             <>
               <Link className="gs-button gs-button-spark" to="/post-job">Post a request</Link>
@@ -135,6 +101,7 @@ export default function Navbar() {
                     <Link to="/post-skill">Offer a skill</Link>
                     <Link to="/post-job">Post a hiring request</Link>
                     <Link to="/saved">Saved listings</Link>
+                    {isAdmin && <Link to="/admin">Admin dashboard</Link>}
 
                     <button
                       type="button"
@@ -177,16 +144,15 @@ export default function Navbar() {
           id="gigspot-mobile-menu"
           aria-label="Mobile navigation"
         >
-          <Link to="/?type=skills#explore">I am looking to hire</Link>
-          <Link to={freelancerDestination}>I want to offer skills</Link>
-
           {user ? (
             <>
               <Link to="/post-job">Post a request</Link>
+              <Link to="/post-skill">Offer a skill</Link>
               <Link to="/my-skills">My Skills</Link>
               <Link to="/my-jobs">My Jobs</Link>
               <Link to="/messages">Messages</Link>
               <Link to="/saved">Saved listings</Link>
+              {isAdmin && <Link to="/admin">Admin dashboard</Link>}
 
               <button
                 type="button"
@@ -194,13 +160,14 @@ export default function Navbar() {
                 disabled={signingOut}
                 onClick={handleLogout}
               >
-                Sign out
+                {signingOut ? 'Signing out…' : 'Sign out'}
               </button>
             </>
           ) : (
             <>
               <Link to="/signin">Sign in</Link>
               <Link to="/signup">Create account</Link>
+              <Link to={freelancerDestination}>Join as freelancer</Link>
             </>
           )}
         </nav>

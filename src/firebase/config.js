@@ -1,7 +1,6 @@
 import { initializeApp } from 'firebase/app'
 import { getAuth, GoogleAuthProvider } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
-import { getFunctions } from 'firebase/functions'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -22,12 +21,8 @@ if (missingConfig.length) {
 
 const app = initializeApp(firebaseConfig)
 
-const functionsRegion =
-  import.meta.env.VITE_FIREBASE_FUNCTIONS_REGION || 'asia-south1'
-
 export const auth = getAuth(app)
 export const db = getFirestore(app)
-export const functions = getFunctions(app, functionsRegion)
 
 export const googleProvider = new GoogleAuthProvider()
 

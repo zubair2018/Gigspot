@@ -6,7 +6,7 @@ export default function Footer() {
       <div className="gs-container gs-footer-grid">
         <div className="gs-footer-brand">
           <Link className="gs-logo" to="/">
-            gigspot<span>.</span>
+            gigspot<span>.in</span>
           </Link>
 
           <p>
@@ -32,7 +32,7 @@ export default function Footer() {
       </div>
 
       <div className="gs-container gs-footer-bottom">
-        <span>© {new Date().getFullYear()} Gigspot</span>
+        <span>© {new Date().getFullYear()} Gigspot.in</span>
         <span>Skills. Ideas. Possibilities.</span>
       </div>
     </footer>

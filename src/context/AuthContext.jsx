@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import {
   getRedirectResult,
   onAuthStateChanged,
@@ -7,7 +7,8 @@ import {
   signInWithRedirect,
   signOut,
 } from 'firebase/auth'
-import { auth, googleProvider } from '../firebase/config'
+import { doc, getDoc } from 'firebase/firestore'
+import { auth, db, googleProvider } from '../firebase/config'
 import { createOrUpdateUser } from '../firebase/db'
 
 const AuthContext = createContext(null)
@@ -55,21 +56,16 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
   const [signingIn, setSigningIn] = useState(false)
   const [authError, setAuthError] = useState('')
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [adminChecked, setAdminChecked] = useState(false)
+  const syncedUid = useRef(null)
 
   useEffect(() => {
     let isMounted = true
 
     async function handleGoogleRedirect() {
       try {
-        const result = await getRedirectResult(auth)
-
-        if (result?.user) {
-          try {
-            await createOrUpdateUser(result.user)
-          } catch (profileError) {
-            console.warn('Redirect sign-in succeeded, but profile sync failed:', profileError)
-          }
-        }
+        await getRedirectResult(auth)
       } catch (error) {
         console.error('Google redirect sign-in error:', error)
 
@@ -87,6 +83,39 @@ export function AuthProvider({ children }) {
       setUser(currentUser)
       setLoading(false)
 
+      if (!currentUser) {
+        syncedUid.current = null
+        setIsAdmin(false)
+        setAdminChecked(true)
+        return
+      }
+
+      // 1) Make sure every signed-in account has a profile document in Firestore `users`
+      //    (also back-fills accounts created before profiles were stored). Once per page load.
+      if (syncedUid.current !== currentUser.uid) {
+        syncedUid.current = currentUser.uid
+        createOrUpdateUser(currentUser).catch(profileError => {
+          console.warn('Profile sync failed:', profileError)
+        })
+      }
+
+      // 2) Admin check: custom claim OR a document at admins/{uid} (created in the Firebase Console).
+      setAdminChecked(false)
+      try {
+        const token = await currentUser.getIdTokenResult()
+        let admin = token.claims.role === 'admin'
+
+        if (!admin) {
+          const adminDoc = await getDoc(doc(db, 'admins', currentUser.uid))
+          admin = adminDoc.exists()
+        }
+
+        if (isMounted) setIsAdmin(admin)
+      } catch {
+        if (isMounted) setIsAdmin(false)
+      } finally {
+        if (isMounted) setAdminChecked(true)
+      }
     })
 
     return () => {
@@ -103,11 +132,6 @@ export function AuthProvider({ children }) {
 
     try {
       const result = await signInWithPopup(auth, googleProvider)
-      try {
-        await createOrUpdateUser(result.user)
-      } catch (profileError) {
-        console.warn('Google sign-in succeeded, but profile sync failed:', profileError)
-      }
       return result?.user || null
     } catch (error) {
       console.error('Google popup sign-in error:', error)
@@ -138,6 +162,7 @@ export function AuthProvider({ children }) {
 
     await reload(currentUser)
     await currentUser.getIdToken(true)
+    createOrUpdateUser(auth.currentUser).catch(() => {}) // keep users.emailVerified current
     setUser(auth.currentUser)
     return auth.currentUser
   }
@@ -162,6 +187,8 @@ export function AuthProvider({ children }) {
     loading,
     signingIn,
     authError,
+    isAdmin,
+    adminChecked,
     signInWithGoogle,
     refreshCurrentUser,
     logout,

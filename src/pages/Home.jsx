@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 
 import Hero from '../components/Hero'
@@ -7,6 +7,8 @@ import Footer from '../components/Footer'
 import JobCard from '../components/JobCard'
 import { useMarketplace } from '../hooks/useMarketplace'
 import { matchesListingSearch, sortListings } from '../shared/search'
+
+const MAX_AUTO_LOADED = 200 // stop auto-fetching more pages while searching after this many items
 
 export default function Home() {
   const [params, setParams] = useSearchParams()
@@ -30,49 +32,58 @@ export default function Home() {
   const sort = ['newest', 'price-low', 'price-high'].includes(params.get('sort')) ? params.get('sort') : 'newest'
   const category = params.get('category') || 'All'
   const location = params.get('location') || ''
+  const filtersActive = Boolean(query.trim() || location.trim() || category !== 'All')
 
-  const filteredSkills = useMemo(() => {
-    return sortListings(skills.filter(item => matchesListingSearch(item, { query, category, location })), sort)
-  }, [skills, query, category, location, sort])
+  const filteredSkills = useMemo(
+    () => sortListings(skills.filter(item => matchesListingSearch(item, { query, category, location })), sort),
+    [skills, query, category, location, sort],
+  )
 
-  const filteredJobs = useMemo(() => {
-    return sortListings(jobs.filter(item => matchesListingSearch(item, { query, category, location })), sort)
-  }, [jobs, query, category, location, sort])
+  const filteredJobs = useMemo(
+    () => sortListings(jobs.filter(item => matchesListingSearch(item, { query, category, location })), sort),
+    [jobs, query, category, location, sort],
+  )
+
+  // Search runs over loaded listings, so while a search/filter is active we quietly
+  // fetch the remaining pages (up to a safe limit) to make sure nothing is missed.
+  useEffect(() => {
+    if (!filtersActive) return
+    if (listingType !== 'jobs' && hasMore.skills && !skillsLoading && !loadingMore.skills && skills.length < MAX_AUTO_LOADED) {
+      loadMore('skills')
+    }
+    if (listingType !== 'skills' && hasMore.jobs && !jobsLoading && !loadingMore.jobs && jobs.length < MAX_AUTO_LOADED) {
+      loadMore('jobs')
+    }
+  }, [filtersActive, listingType, hasMore, skillsLoading, jobsLoading, loadingMore, skills.length, jobs.length, loadMore])
 
   function updateFilter(name, value) {
     const next = new URLSearchParams(params)
-
-    if (value) {
-      next.set(name, value)
-    } else {
-      next.delete(name)
-    }
-
+    if (value) next.set(name, value)
+    else next.delete(name)
     setParams(next, { replace: true })
   }
 
-  function searchServices(value) {
-    const next = new URLSearchParams()
-
-    if (value.trim()) next.set('q', value.trim())
-
-    next.set('type', 'skills')
-    setParams(next)
+  function scrollToResults() {
     window.requestAnimationFrame(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }
+
+  // The ONE search entry point (hero box, hero suggestions and popular-service chips).
+  // It searches skills AND jobs, then jumps to the results.
+  function searchListings(value) {
+    const next = new URLSearchParams()
+    if (value.trim()) next.set('q', value.trim())
+    setParams(next)
+    scrollToResults()
   }
 
   return (
     <div className="gs-site">
       <main>
         <div className="gs-container">
-          <Hero onSearch={searchServices} />
-          <PopularServices onSelect={searchServices} />
+          <Hero onSearch={searchListings} activeQuery={query} />
+          <PopularServices onSelect={searchListings} />
 
-          <section
-            className="gs-section gs-explore-section"
-            id="explore"
-            ref={resultsRef}
-          >
+          <section className="gs-section gs-explore-section" id="explore" ref={resultsRef}>
             <div className="gs-section-heading">
               <div>
                 <p className="gs-eyebrow">Find your next connection</p>
@@ -81,28 +92,8 @@ export default function Home() {
             </div>
 
             <div className="gs-results-toolbar">
-              <label className="gs-sr-only" htmlFor="results-search">
-                Search listings
-              </label>
-
-              <input
-                id="results-search"
-                type="search"
-                value={query}
-                onChange={event => updateFilter('q', event.target.value)}
-                placeholder="Search by skill, service, or location"
-                maxLength={100}
-              />
-
-              <label className="gs-sr-only" htmlFor="listing-type">
-                Listing type
-              </label>
-
-              <select
-                id="listing-type"
-                value={listingType}
-                onChange={event => updateFilter('type', event.target.value)}
-              >
+              <label className="gs-sr-only" htmlFor="listing-type">Listing type</label>
+              <select id="listing-type" value={listingType} onChange={event => updateFilter('type', event.target.value)}>
                 <option value="all">All listings</option>
                 <option value="skills">Skill providers</option>
                 <option value="jobs">Jobs and opportunities</option>
@@ -126,35 +117,33 @@ export default function Home() {
                 type="search"
                 value={location}
                 onChange={event => updateFilter('location', event.target.value)}
-                placeholder="Location"
+                placeholder="Filter by location"
                 maxLength={80}
               />
 
-              <label className="gs-sr-only" htmlFor="listing-sort">
-                Sort listings
-              </label>
-
-              <select
-                id="listing-sort"
-                value={sort}
-                onChange={event => updateFilter('sort', event.target.value)}
-              >
+              <label className="gs-sr-only" htmlFor="listing-sort">Sort listings</label>
+              <select id="listing-sort" value={sort} onChange={event => updateFilter('sort', event.target.value)}>
                 <option value="newest">Newest first</option>
                 <option value="price-low">Lowest price</option>
                 <option value="price-high">Highest price</option>
               </select>
 
-              <button
-                type="button"
-                className="gs-text-button"
-                onClick={() => setParams({})}
-              >
-                Clear
+              <button type="button" className="gs-text-button" onClick={() => setParams({})} disabled={!filtersActive && listingType === 'all' && sort === 'newest'}>
+                Clear all
               </button>
             </div>
 
+            {query && (
+              <p className="gs-active-search">
+                Searching for <strong>“{query}”</strong>
+                <button type="button" onClick={() => updateFilter('q', '')} aria-label="Clear search">×</button>
+              </p>
+            )}
+
             {listingType !== 'jobs' && (
               <ListingSection
+                variant="skills"
+                icon="✦"
                 title="People offering skills"
                 description="Meet professionals and discover what they can do."
                 items={filteredSkills}
@@ -164,14 +153,16 @@ export default function Home() {
                 onLoadMore={() => loadMore('skills')}
                 hasMore={hasMore.skills}
                 loadingMore={loadingMore.skills}
-                skills
+                searching={filtersActive}
               />
             )}
 
             {listingType !== 'skills' && (
               <ListingSection
+                variant="jobs"
+                icon="▤"
                 title="Jobs and opportunities"
-                description="Hiring requests publish immediately and may be removed after reports or moderation."
+                description="Hiring requests go live instantly and may be removed after reports or moderation."
                 items={filteredJobs}
                 refresh={refresh}
                 loading={jobsLoading}
@@ -179,6 +170,7 @@ export default function Home() {
                 onLoadMore={() => loadMore('jobs')}
                 hasMore={hasMore.jobs}
                 loadingMore={loadingMore.jobs}
+                searching={filtersActive}
               />
             )}
           </section>
@@ -187,15 +179,10 @@ export default function Home() {
             <div>
               <p className="gs-eyebrow">Your skills deserve a spotlight</p>
               <h2>Do what you love.<br />Find people who need it.</h2>
-              <p>
-                Create a profile, show your work, and start a conversation.
-              </p>
+              <p>Create a profile, show your work, and start a conversation.</p>
             </div>
 
-            <Link
-              className="gs-button gs-button-spark"
-              to="/signup?intent=freelancer"
-            >
+            <Link className="gs-button gs-button-spark" to="/signup?intent=freelancer">
               Join as freelancer →
             </Link>
           </section>
@@ -208,26 +195,35 @@ export default function Home() {
 }
 
 function ListingSection({
+  variant,
+  icon,
   title,
   description,
   items,
   refresh,
-  skills = false,
   loading,
   error,
   onLoadMore,
   hasMore,
   loadingMore,
+  searching,
 }) {
+  const isSkills = variant === 'skills'
+
   return (
-    <section className="gs-listing-section">
+    <section className={`gs-listing-section gs-listing-${variant}`} aria-label={title}>
       <div className="gs-listing-heading">
-        <div>
-          <h3>{title}</h3>
-          <p>{description}</p>
+        <div className="gs-listing-title">
+          <span className="gs-listing-icon" aria-hidden="true">{icon}</span>
+          <div>
+            <h3>{title}</h3>
+            <p>{description}</p>
+          </div>
         </div>
 
-        <span>{items.length} found</span>
+        <span className="gs-listing-count">
+          {loading ? '…' : items.length} {items.length === 1 ? 'result' : 'results'}
+        </span>
       </div>
 
       {error ? (
@@ -239,27 +235,25 @@ function ListingSection({
         <LoadingCards />
       ) : items.length === 0 ? (
         <div className="gs-empty-state">
-          <h4>No matching listings yet</h4>
+          <h4>{searching ? 'Nothing matches your search' : 'No listings yet'}</h4>
           <p>
-            Try a different search or be among the first to share a listing.
+            {searching
+              ? loadingMore ? 'Checking more listings…' : 'Try different keywords or clear the filters.'
+              : 'Be among the first to share a listing.'}
           </p>
         </div>
       ) : (
-        <div className={skills ? 'gs-skills-row' : 'gs-jobs-grid'}>
+        <div className={isSkills ? 'gs-skills-row' : 'gs-jobs-grid'}>
           {items.map(item => (
-            <div key={item.id} className={skills ? 'gs-skill-item' : ''}>
-              <JobCard
-                job={item}
-                compact={skills}
-              />
+            <div key={item.id} className={isSkills ? 'gs-skill-item' : ''}>
+              <JobCard job={item} compact={isSkills} />
             </div>
           ))}
         </div>
       )}
 
-      {!loading && !error && hasMore && (
+      {!loading && !error && hasMore && !searching && (
         <div className="gs-load-more-wrap">
-          <p>Search currently covers the loaded listings. Load more to expand results.</p>
           <button className="gs-button gs-button-outline" onClick={onLoadMore} disabled={loadingMore}>
             {loadingMore ? 'Loading…' : 'Load more'}
           </button>

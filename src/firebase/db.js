@@ -17,6 +17,7 @@ import {
   startAfter,
   updateDoc,
   where,
+  writeBatch,
 } from 'firebase/firestore'
 import { db } from './config'
 import {
@@ -36,6 +37,8 @@ function mapDocs(snapshot) {
   }))
 }
 
+// Profile sync: stores name / email / photo / verification state in Firestore `users`.
+// Passwords are NOT stored here. Firebase Authentication keeps them as salted hashes.
 export async function createOrUpdateUser(user) {
   if (!user?.uid) return
 
@@ -44,9 +47,11 @@ export async function createOrUpdateUser(user) {
 
   const userData = {
     uid: user.uid,
-    name: user.displayName || 'Gigspot member',
+    name: (user.displayName || '').trim().length >= 2 ? user.displayName.trim().slice(0, 60) : 'Gigspot member',
     email: user.email || '',
     photo: user.photoURL || '',
+    emailVerified: Boolean(user.emailVerified),
+    provider: (user.providerData?.[0]?.providerId || 'password').slice(0, 40),
     lastLoginAt: serverTimestamp(),
   }
 
@@ -55,6 +60,27 @@ export async function createOrUpdateUser(user) {
   }
 
   await setDoc(userRef, userData, { merge: true })
+}
+
+// Public site settings (announcement banner + auto-approve switch). Cached per page load.
+const DEFAULT_SETTINGS = {
+  announcementEnabled: false,
+  announcementText: '',
+  announcementTone: 'info',
+  autoApproveServices: false,
+}
+let settingsCache = null
+
+export async function getSiteSettings(force = false) {
+  if (settingsCache && !force) return settingsCache
+  try {
+    const snapshot = await getDoc(doc(db, 'siteSettings', 'main'))
+    settingsCache = { ...DEFAULT_SETTINGS, ...(snapshot.exists() ? snapshot.data() : {}) }
+  } catch (error) {
+    console.warn('Could not load site settings:', error)
+    settingsCache = { ...DEFAULT_SETTINGS }
+  }
+  return settingsCache
 }
 
 export async function createJob(jobData, user) {
@@ -88,6 +114,7 @@ export async function createJob(jobData, user) {
 }
 
 export async function createSkill(skillData, user) {
+  const settings = await getSiteSettings(true)
   const reference = await addDoc(collection(db, SKILLS), {
     ...skillData,
 
@@ -99,7 +126,7 @@ export async function createSkill(skillData, user) {
       photo: user.photoURL || '',
     },
 
-    status: SKILL_STATUS.PENDING_REVIEW,
+    status: settings.autoApproveServices ? SKILL_STATUS.PUBLISHED : SKILL_STATUS.PENDING_REVIEW,
     rejectionReason: '',
 
     isVerified: false,
@@ -181,9 +208,10 @@ export async function setJobStatus(id, status) {
 }
 
 export async function updateSkill(id, data) {
+  const settings = await getSiteSettings(true)
   await updateDoc(doc(db, SKILLS, id), {
     ...data,
-    status: SKILL_STATUS.PENDING_REVIEW,
+    status: settings.autoApproveServices ? SKILL_STATUS.PUBLISHED : SKILL_STATUS.PENDING_REVIEW,
     rejectionReason: '',
     updatedAt: serverTimestamp(),
   })
@@ -326,11 +354,18 @@ export async function sendMessage(chatId, senderUid, text) {
     throw new Error('Message cannot be empty.')
   }
 
-  await addDoc(collection(db, CHATS, chatId, 'messages'), {
+  // Message + chat summary in ONE atomic batch (replaces the old Cloud Function).
+  const batch = writeBatch(db)
+  batch.set(doc(collection(db, CHATS, chatId, 'messages')), {
     senderUid,
     text: cleanText,
     createdAt: serverTimestamp(),
   })
+  batch.update(doc(db, CHATS, chatId), {
+    lastMessage: cleanText.slice(0, 2000),
+    lastMessageAt: serverTimestamp(),
+  })
+  await batch.commit()
 }
 
 export function subscribeMessages(chatId, callback, onError) {
@@ -371,24 +406,24 @@ export async function getMarketplacePage(collectionName, cursor = null, pageSize
     throw new Error('Unsupported marketplace listing type.')
   }
 
-  const isSkills = collectionName === SKILLS || collectionName === 'skills'
-  const reference = collection(db, isSkills ? SKILLS : JOBS)
+  const isSkills = collectionName === SKILLS
   const safePageSize = Math.min(Math.max(Number(pageSize) || 20, 1), 50)
-  const constraints = [orderBy('createdAt', 'desc')]
+
+  // The status filter MUST be part of the query: Firestore rules only allow
+  // queries that are provably limited to readable documents, and filtering
+  // server-side also stops pending/suspended items from eating up the page.
+  const constraints = [
+    where('status', '==', isSkills ? SKILL_STATUS.PUBLISHED : JOB_STATUS.PUBLISHED),
+    orderBy('createdAt', 'desc'),
+  ]
 
   if (cursor) constraints.push(startAfter(cursor))
   constraints.push(limit(safePageSize))
 
-  const snapshot = await getDocs(query(reference, ...constraints))
-  const items = mapDocs(snapshot).filter(item => {
-    const status = item.status
-    return isSkills
-      ? status === SKILL_STATUS.PUBLISHED
-      : status === JOB_STATUS.PUBLISHED
-  })
+  const snapshot = await getDocs(query(collection(db, collectionName), ...constraints))
 
   return {
-    items,
+    items: mapDocs(snapshot),
     cursor: snapshot.docs.length ? snapshot.docs[snapshot.docs.length - 1] : null,
     hasMore: snapshot.size === safePageSize,
   }

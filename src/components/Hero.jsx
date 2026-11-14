@@ -8,10 +8,15 @@ const SEARCH_EXAMPLES = [
   'Business tutor',
 ]
 
-export default function Hero({ onSearch }) {
-  const [query, setQuery] = useState('')
+export default function Hero({ onSearch, activeQuery = '' }) {
+  const [query, setQuery] = useState(activeQuery)
   const [focused, setFocused] = useState(false)
   const [exampleIndex, setExampleIndex] = useState(0)
+
+  // Keep the box in sync when the search is cleared or changed elsewhere (URL, Clear button).
+  useEffect(() => {
+    setQuery(activeQuery)
+  }, [activeQuery])
 
   useEffect(() => {
     const reducedMotion = window.matchMedia(
@@ -67,7 +72,7 @@ export default function Hero({ onSearch }) {
             autoComplete="off"
           />
 
-          <button type="submit">
+          <button type="submit" aria-label="Search listings">
             Search <span aria-hidden="true">↗</span>
           </button>
         </form>
